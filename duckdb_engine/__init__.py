@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 
 import duckdb
+import sqlalchemy
 from sqlalchemy import pool
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
@@ -203,11 +204,17 @@ class Dialect(PGDialect_psycopg2):
     def get_view_names(
         self,
         connection: Any,
-        schema: Optional[Any] = ...,
-        include: Any = ...,
+        schema: Optional[Any] = None,
+        include: Any = None,
         **kw: Any,
     ) -> Any:
-        s = "SELECT name FROM sqlite_master WHERE type='view' ORDER BY name"
-        rs = connection.exec_driver_sql(s)
+        schema = schema if schema is not None else "main"
+        if sqlalchemy.__version__ < "1.4":
+            s = f"SELECT table_name FROM information_schema.tables WHERE table_type='VIEW' and table_schema=? "
+            rs = connection.execute(s, schema)
+        else:
+            s = f"SELECT table_name FROM information_schema.tables WHERE table_type='VIEW' and table_schema='%s' "
+            schema = schema if schema is not None else "main"
+            rs = connection.exec_driver_sql(s % schema)
 
         return [row[0] for row in rs]
